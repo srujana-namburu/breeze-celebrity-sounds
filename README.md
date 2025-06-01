@@ -1,54 +1,147 @@
-# Welcome to your Lovable project
+# Breeze Celebrity Sounds - News Dashboard with Voice Synthesis
 
-## Project info
+A modern news dashboard application that allows users to browse news articles by category and listen to them using various voice profiles. The application features a React/TypeScript frontend with a Flask backend for news fetching and text-to-speech synthesis.
 
-**URL**: https://lovable.dev/projects/ced663de-b12d-4743-8f6b-8782fbbab91c
+## Features
 
-## How can I edit this code?
+- Browse news articles from various sources
+- Filter news by categories (Politics, Technology, Sports, Entertainment, Science)
+- Listen to news articles with different voice profiles
+- Responsive design with modern UI
 
-There are several ways of editing your application.
+## Technology Stack
 
-**Use Lovable**
+### Frontend
+- React with TypeScript
+- Vite for fast development and building
+- Tailwind CSS for styling
+- Shadcn UI components
+- Custom audio player component
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/ced663de-b12d-4743-8f6b-8782fbbab91c) and start prompting.
+### Backend
+- Flask (Python)
+- Google Text-to-Speech (gTTS) for voice synthesis
+- RSS feed parsing with feedparser
+- Audio processing with pydub
 
-Changes made via Lovable will be committed automatically to this repo.
+## Setup Instructions
 
-**Use your preferred IDE**
+### Prerequisites
+- Node.js (v16+) and npm
+- Python 3.8+ with pip
+- Git
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### Backend Setup
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+1. Clone the repository:
+   ```sh
+   git clone <repository-url>
+   cd breeze-celebrity-sounds
+   ```
 
-Follow these steps:
+2. Set up a Python virtual environment (recommended):
+   ```sh
+   cd backend
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+3. Install backend dependencies:
+   ```sh
+   pip install -r requirements.txt
+   ```
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+4. Install additional dependencies for text-to-speech:
+   ```sh
+   pip install gTTS
+   ```
 
-# Step 3: Install the necessary dependencies.
-npm i
+5. Start the Flask backend server:
+   ```sh
+   python app.py
+   ```
+   The backend will run on http://localhost:5001
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+### Frontend Setup
 
-**Edit a file directly in GitHub**
+1. Navigate to the project root directory:
+   ```sh
+   cd breeze-celebrity-sounds
+   ```
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+2. Install frontend dependencies:
+   ```sh
+   npm install
+   ```
 
-**Use GitHub Codespaces**
+3. Start the development server:
+   ```sh
+   npm run dev
+   ```
+   The frontend will run on http://localhost:8080 or another port if 8080 is in use
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Voice Synthesis Models
+
+### Primary TTS Model
+
+The application uses Google Text-to-Speech (gTTS) for voice synthesis. This is a lightweight, reliable TTS service that provides high-quality speech synthesis across multiple languages and accents.
+
+Features of gTTS:
+- Multiple language support
+- Various accents (US, UK, Australian, Indian, etc.)
+- Speed control (normal/slow)
+- No local model loading required
+
+### Voice Profiles
+
+The application includes multiple voice profiles mapped to different language and accent combinations:
+
+1. **English Voices**:
+   - US English
+   - UK English
+   - Australian English
+   - Indian English
+   - Canadian English
+
+2. **Other Languages**:
+   - French
+   - German
+   - Spanish
+   - Italian
+   - Portuguese
+   - Dutch
+   - Japanese
+
+3. **Speed Variations**:
+   - Slow US English
+   - Slow UK English
+   - Slow French
+   - Slow German
+   - Slow Spanish
+
+### Fallback Mechanism
+
+The application includes a robust fallback mechanism:
+1. Primary attempt: gTTS synthesis with the selected voice profile
+2. Secondary fallback: Direct gTTS with simplified settings
+3. Final fallback: Sample audio files or generated sine wave
+
+## Project Structure
+
+- `/src` - Frontend React application
+  - `/components` - React components including AudioPlayer and Dashboard
+  - `/services` - API services for voice synthesis and news fetching
+- `/backend` - Flask backend
+  - `app.py` - Main Flask application with API endpoints
+  - `setup_voices.py` - Script for setting up voice samples
+  - `/voice_samples` - Directory containing voice sample files
+
+## Troubleshooting
+
+- If you encounter issues with audio playback, check browser console for errors
+- For backend errors, check the Flask server logs
+- Make sure both frontend and backend servers are running simultaneously
+- If voice synthesis fails, the system will fall back to sample audio files
 
 ## What technologies are used for this project?
 

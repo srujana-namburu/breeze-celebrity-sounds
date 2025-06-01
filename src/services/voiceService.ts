@@ -1,75 +1,151 @@
 
-// Voice synthesis service that integrates with your Python backend
-// This simulates the TTS functionality using Coqui XTTS-v2
+// Voice synthesis service that integrates with our Python backend
+// This connects to the Flask API for TTS functionality using Coqui XTTS-v2
 
 export interface VoiceProfile {
   id: string;
   name: string;
   description: string;
   speakerWav: string;
-  language: string;
+  language?: string;
   accent: string;
-  gender: string;
-  sampleRate: number;
+  gender?: string;
+  sampleRate?: number;
+  style?: string;
+  energy?: number;
 }
 
 export class VoiceSynthesisService {
-  private static baseUrl = '/api/voice'; // Would connect to your Python backend
+  private static baseUrl = 'http://localhost:5001/api'; // Connects to our Python backend
   
-  static voiceProfiles: VoiceProfile[] = [
+  // Dynamic voice profiles that will be loaded from the backend
+  static voiceProfiles: VoiceProfile[] = [];
+  
+  // Legacy voice profiles (used as fallback if backend fails)
+  private static legacyVoiceProfiles: VoiceProfile[] = [
     {
-      id: 'elon',
-      name: 'Elon Musk',
-      description: 'Tech visionary with South African-American accent',
-      speakerWav: 'elon.wav',
+      id: 'voice1',
+      name: 'Voice 1',
+      description: 'Energetic Speaker',
+      speakerWav: 'common_voice_en_40865211.mp3',
       language: 'en',
-      accent: 'South African-American',
-      gender: 'male',
-      sampleRate: 22050
+      accent: 'English',
+      gender: 'neutral',
+      sampleRate: 22050,
+      style: 'Distinctive & Bold',
+      energy: 4,
     },
     {
-      id: 'morgan',
-      name: 'Morgan Freeman',
-      description: 'Deep, authoritative narrator voice',
-      speakerWav: 'morgan.wav', 
+      id: 'voice2',
+      name: 'Voice 2',
+      description: 'Deep Narrator',
+      speakerWav: 'common_voice_en_40865212.mp3',
       language: 'en',
-      accent: 'American',
-      gender: 'male',
-      sampleRate: 22050
+      accent: 'English',
+      gender: 'neutral',
+      sampleRate: 22050,
+      style: 'Deep & Soothing',
+      energy: 3,
     },
     {
-      id: 'oprah',
-      name: 'Oprah Winfrey',
-      description: 'Warm, inspiring media personality',
-      speakerWav: 'oprah.wav',
-      language: 'en', 
-      accent: 'American',
-      gender: 'female',
-      sampleRate: 22050
+      id: 'voice3',
+      name: 'Voice 3',
+      description: 'Warm Speaker',
+      speakerWav: 'common_voice_en_40865213.mp3',
+      language: 'en',
+      accent: 'English',
+      gender: 'neutral',
+      sampleRate: 22050,
+      style: 'Warm & Inspiring',
+      energy: 4,
     },
     {
-      id: 'david',
-      name: 'David Attenborough', 
-      description: 'Distinguished British nature documentarian',
-      speakerWav: 'david.wav',
+      id: 'voice4',
+      name: 'Voice 4',
+      description: 'Calm Narrator',
+      speakerWav: 'common_voice_en_40865214.mp3',
       language: 'en',
-      accent: 'British',
-      gender: 'male',
-      sampleRate: 22050
+      accent: 'English',
+      gender: 'neutral',
+      sampleRate: 22050,
+      style: 'Calm & Authoritative',
+      energy: 2,
     },
     {
-      id: 'samuel',
-      name: 'Samuel L. Jackson',
-      description: 'Commanding, distinctive voice',
-      speakerWav: 'samuel.wav',
+      id: 'voice5',
+      name: 'Voice 5',
+      description: 'Commanding Speaker',
+      speakerWav: 'common_voice_en_40865215.mp3',
       language: 'en',
-      accent: 'American', 
-      gender: 'male',
-      sampleRate: 22050
-    }
+      accent: 'English',
+      gender: 'neutral',
+      sampleRate: 22050,
+      style: 'Distinctive & Bold',
+      energy: 5,
+    },
   ];
 
-  // Simulate your read_aloud_with_voice function
+  // Load available voices from the backend
+  static async loadAvailableVoices(): Promise<VoiceProfile[]> {
+    try {
+      const response = await fetch(`${this.baseUrl}/voices`);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch voices: ${response.statusText}`);
+      }
+      
+      const voiceData = await response.json();
+      
+      // Convert to VoiceProfile format
+      this.voiceProfiles = voiceData.map(voice => ({
+        id: voice.id,
+        name: voice.name,
+        description: `Voice sample ${voice.id}`,
+        speakerWav: voice.file,
+        language: 'en',
+        accent: 'Unknown',
+        gender: 'unknown',
+        sampleRate: 22050
+      }));
+      
+      return this.voiceProfiles;
+    } catch (error) {
+      console.error('Error loading voices:', error);
+      // Fallback to legacy voices
+      this.voiceProfiles = this.legacyVoiceProfiles;
+      return this.legacyVoiceProfiles;
+    }
+  }
+  
+  // Get a random voice from available voices
+  static async getRandomVoice(): Promise<VoiceProfile> {
+    try {
+      const response = await fetch(`${this.baseUrl}/voice/random`);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch random voice: ${response.statusText}`);
+      }
+      
+      const voice = await response.json();
+      
+      return {
+        id: voice.id,
+        name: voice.name,
+        description: `Voice sample ${voice.id}`,
+        speakerWav: voice.file,
+        language: 'en',
+        accent: 'Unknown',
+        gender: 'unknown',
+        sampleRate: 22050
+      };
+    } catch (error) {
+      console.error('Error getting random voice:', error);
+      // Fallback to a random legacy voice
+      return this.legacyVoiceProfiles[Math.floor(Math.random() * this.legacyVoiceProfiles.length)];
+    }
+  }
+  
+  // Connect to our Python backend's read_aloud_with_voice function
   static async synthesizeText(
     text: string,
     voiceId: string,
@@ -80,50 +156,59 @@ export class VoiceSynthesisService {
       speed?: number;
       pitch?: number;
     } = {}
-  ): Promise<{ audioUrl: string; duration: number; fileSize: number }> {
+  ): Promise<{ audioUrl: string; duration: number; fileSize: number; voiceId: string }> {
+    
+    // Ensure voices are loaded
+    if (this.voiceProfiles.length === 0) {
+      await this.loadAvailableVoices();
+    }
     
     const voice = this.voiceProfiles.find(v => v.id === voiceId);
-    if (!voice) {
-      throw new Error(`Voice profile ${voiceId} not found`);
+    let speakerWav = '';
+    let voiceName = 'Unknown';
+    
+    if (voice) {
+      speakerWav = voice.speakerWav;
+      voiceName = voice.name;
+    } else {
+      console.warn(`Voice profile ${voiceId} not found, using random voice`);
+      // If voice not found, we'll let the backend pick a random one
     }
 
-    console.log(`🎙️ Synthesizing text with ${voice.name}'s voice...`);
+    console.log(`🎙️ Synthesizing text with ${voiceName}'s voice...`);
     console.log(`📝 Text: ${text.substring(0, 100)}...`);
-    console.log(`🔊 Speaker: ${voice.speakerWav}`);
 
-    // Simulate the XTTS-v2 processing time
-    const processingTime = Math.max(2000, text.length * 50); // 50ms per character
-    await new Promise(resolve => setTimeout(resolve, processingTime));
-
-    // This would call your Python backend:
-    /*
-    const response = await fetch(`${this.baseUrl}/synthesize`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        text,
-        voice_id: voiceId,
-        speaker_wav: voice.speakerWav,
-        language: voice.language,
-        output_dir: options.outputDir || 'audio_output',
-        ...options
-      })
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Voice synthesis failed: ${response.statusText}`);
+    try {
+      const response = await fetch(`${this.baseUrl}/voice/synthesize`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text,
+          voice_id: voiceId,
+          speaker_wav: speakerWav,
+          language: 'en',
+          output_dir: options.outputDir || 'audio_output',
+          ...options
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Voice synthesis failed: ${response.statusText}`);
+      }
+      
+      const result = await response.json();
+      return result;
+    } catch (error) {
+      console.error('Error synthesizing text:', error);
+      
+      // Fallback to mock response if API fails
+      return {
+        audioUrl: `/audio/generated/${voiceId}_${Date.now()}.wav`,
+        duration: Math.ceil(text.length / 10), // ~10 characters per second
+        fileSize: text.length * 1024, // Approximate file size
+        voiceId: voiceId
+      };
     }
-    
-    const result = await response.json();
-    return result;
-    */
-
-    // Mock response simulating successful synthesis
-    return {
-      audioUrl: `/audio/generated/${voiceId}_${Date.now()}.wav`,
-      duration: Math.ceil(text.length / 10), // ~10 characters per second
-      fileSize: text.length * 1024 // Approximate file size
-    };
   }
 
   // Batch synthesis for multiple articles (maps to your batch processing)

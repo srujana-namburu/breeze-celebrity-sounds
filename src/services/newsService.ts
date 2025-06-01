@@ -1,6 +1,6 @@
 
-// Simulated news service that would integrate with the Python backend
-// This represents the functionality you described with RSS feeds, summarization, and voice synthesis
+// News service that integrates with the Python backend
+// This connects to our Flask API for RSS feeds, summarization, and voice synthesis
 
 export interface NewsArticle {
   id: string;
@@ -13,6 +13,18 @@ export interface NewsArticle {
   readTime: string;
   trending?: boolean;
   audioUrl?: string;
+}
+
+export interface PaginationData {
+  total: number;
+  offset: number;
+  limit: number;
+  hasMore: boolean;
+}
+
+export interface NewsResponse {
+  items: NewsArticle[];
+  pagination: PaginationData;
 }
 
 // Mock data representing processed news from your Python backend
@@ -88,34 +100,73 @@ export const mockNews: NewsArticle[] = [
   }
 ];
 
-// Simulated API functions that would connect to your Python backend
+// API functions that connect to our Python backend
 export class NewsService {
   
-  // Simulate RSS feed aggregation (maps to your fetch_headlines function)
-  static async fetchLatestNews(maxItems: number = 10): Promise<NewsArticle[]> {
-    // This would call your Python backend's RSS aggregation
-    console.log('📡 Fetching latest news from RSS feeds...');
+  private static baseUrl = 'http://localhost:5001/api';
+  
+  // Fetch headlines from RSS feeds using our Python backend
+  static async fetchLatestNews(maxItems: number = 10, offset: number = 0, rssUrl: string = 'http://feeds.bbci.co.uk/news/rss.xml'): Promise<NewsResponse> {
+    console.log(`📡 Fetching news with offset ${offset}, limit ${maxItems}...`);
     
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    return mockNews.slice(0, maxItems);
+    try {
+      // Try to fetch with pagination
+      const response = await fetch(`${this.baseUrl}/news?max_items=${maxItems}&offset=${offset}&rss_url=${encodeURIComponent(rssUrl)}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.items && data.items.length > 0) {
+          console.log(`Successfully fetched ${data.items.length} news items with offset ${offset}`);
+          return {
+            items: data.items,
+            pagination: data.pagination || {
+              total: data.items.length,
+              offset: offset,
+              limit: maxItems,
+              hasMore: false
+            }
+          };
+        }
+      }
+      
+      throw new Error('Failed to fetch news');
+    } catch (error) {
+      console.error('Error fetching news:', error);
+      // Only use mock data as absolute last resort
+      if (offset === 0) {
+        alert('Could not fetch latest news. Using sample news instead. Please check your internet connection and try again.');
+        return {
+          items: mockNews.slice(0, maxItems),
+          pagination: {
+            total: mockNews.length,
+            offset: 0,
+            limit: maxItems,
+            hasMore: mockNews.length > maxItems
+          }
+        };
+      } else {
+        // For pagination requests beyond the first page, return empty results
+        return {
+          items: [],
+          pagination: {
+            total: 0,
+            offset: offset,
+            limit: maxItems,
+            hasMore: false
+          }
+        };
+      }
+    }
   }
 
-  // Simulate AI summarization (maps to your summarize_news function)
+  // Articles are already summarized by the backend
+  // This method is kept for compatibility but doesn't need to do additional summarization
   static async summarizeArticles(articles: string[]): Promise<string[]> {
-    console.log('📝 Summarizing articles with Falconsai/text_summarization...');
-    
-    // This would call your Hugging Face summarization pipeline
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // Return mock summaries
-    return articles.map(article => 
-      `AI-generated summary: ${article.substring(0, 150)}...`
-    );
+    console.log('📝 Articles already summarized by backend');
+    return articles;
   }
 
-  // Simulate voice synthesis (maps to your read_aloud_with_voice function)
+  // Generate voice audio using our Python backend's TTS system
   static async generateVoiceAudio(
     text: string, 
     voiceId: string,
@@ -123,18 +174,38 @@ export class NewsService {
   ): Promise<string> {
     console.log(`🎙️ Generating ${voiceId} voice audio with XTTS-v2...`);
     
-    // This would call your TTS system
-    await new Promise(resolve => setTimeout(resolve, 3000));
-    
-    // Return mock audio URL
-    return `/audio/generated/${voiceId}_${Date.now()}.wav`;
+    try {
+      const response = await fetch(`${this.baseUrl}/voice/synthesize`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text,
+          voice_id: voiceId,
+          speaker_wav: speakerWav,
+          language: 'en'
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Voice synthesis failed: ${response.statusText}`);
+      }
+      
+      const result = await response.json();
+      return result.audioUrl;
+    } catch (error) {
+      console.error('Error generating voice audio:', error);
+      // Fallback to mock audio URL if API fails
+      return `/audio/generated/${voiceId}_${Date.now()}.wav`;
+    }
   }
 
   // Simulate real-time news updates
   static subscribeToUpdates(callback: (news: NewsArticle[]) => void) {
     const interval = setInterval(async () => {
-      const latestNews = await this.fetchLatestNews();
-      callback(latestNews);
+      const response = await this.fetchLatestNews();
+      callback(response.items);
     }, 30000); // Update every 30 seconds
 
     return () => clearInterval(interval);
@@ -142,16 +213,16 @@ export class NewsService {
 
   // Simulate category filtering
   static async getNewsByCategory(category: string): Promise<NewsArticle[]> {
-    const allNews = await this.fetchLatestNews();
-    return allNews.filter(article => 
+    const response = await this.fetchLatestNews();
+    return response.items.filter(article => 
       article.category.toLowerCase() === category.toLowerCase()
     );
   }
 
   // Simulate search functionality
   static async searchNews(query: string): Promise<NewsArticle[]> {
-    const allNews = await this.fetchLatestNews();
-    return allNews.filter(article =>
+    const response = await this.fetchLatestNews();
+    return response.items.filter(article =>
       article.title.toLowerCase().includes(query.toLowerCase()) ||
       article.summary.toLowerCase().includes(query.toLowerCase())
     );

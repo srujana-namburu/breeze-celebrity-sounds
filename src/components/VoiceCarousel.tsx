@@ -1,6 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card } from "@/components/ui/card";
+import { VoiceSynthesisService, VoiceProfile } from '../services/voiceService';
 
 interface Voice {
   id: string;
@@ -15,50 +16,72 @@ interface VoiceCarouselProps {
   onVoiceSelect: (voiceId: string) => void;
 }
 
-const voices: Voice[] = [
-  {
-    id: 'elon',
-    name: 'Elon Musk',
-    avatar: '🚀',
-    description: 'Tech Visionary',
-    accent: 'South African-American'
-  },
-  {
-    id: 'morgan',
-    name: 'Morgan Freeman',
-    avatar: '🎭',
-    description: 'Legendary Narrator',
-    accent: 'Deep & Soothing'
-  },
-  {
-    id: 'oprah',
-    name: 'Oprah Winfrey',
-    avatar: '👑',
-    description: 'Media Mogul',
-    accent: 'Warm & Inspiring'
-  },
-  {
-    id: 'david',
-    name: 'David Attenborough',
-    avatar: '🌿',
-    description: 'Nature Documentary',
-    accent: 'British Refined'
-  },
-  {
-    id: 'samuel',
-    name: 'Samuel L. Jackson',
-    avatar: '⚡',
-    description: 'Commanding Presence',
-    accent: 'Distinctive & Bold'
-  }
-];
+// Default voice avatars/emojis to use for generic voices
+const voiceAvatars = ['🎙️', '🔊', '🎧', '🎤', '📢', '🔈', '📣', '🗣️'];
+
+// Convert VoiceProfile to Voice interface
+const convertToVoice = (profile: VoiceProfile, index: number): Voice => ({
+  id: profile.id,
+  name: profile.name,
+  avatar: voiceAvatars[index % voiceAvatars.length],
+  description: profile.description || `Voice sample ${index + 1}`,
+  accent: profile.accent || 'Generic Voice'
+});
+
 
 const VoiceCarousel: React.FC<VoiceCarouselProps> = ({ selectedVoice, onVoiceSelect }) => {
   const [hoveredVoice, setHoveredVoice] = useState<string | null>(null);
+  const [voices, setVoices] = useState<Voice[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+
+  // Fetch voices from backend when component mounts
+  useEffect(() => {
+    const loadVoices = async () => {
+      try {
+        setLoading(true);
+        const voiceProfiles = await VoiceSynthesisService.loadAvailableVoices();
+        const convertedVoices = voiceProfiles.map((profile, index) => convertToVoice(profile, index));
+        setVoices(convertedVoices);
+        
+        // If no voice is selected yet, select the first one
+        if (selectedVoice === 'elon' && convertedVoices.length > 0) {
+          onVoiceSelect(convertedVoices[0].id);
+        }
+      } catch (error) {
+        console.error('Error loading voices:', error);
+        // Fallback to default voices if backend fails
+        setVoices([
+          {
+            id: 'voice1',
+            name: 'Voice 1',
+            avatar: '🎙️',
+            description: 'Generic Voice Sample',
+            accent: 'English'
+          },
+          {
+            id: 'voice2',
+            name: 'Voice 2',
+            avatar: '🔊',
+            description: 'Generic Voice Sample',
+            accent: 'English'
+          }
+        ]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadVoices();
+  }, [selectedVoice, onVoiceSelect]);
+
+  if (loading) {
+    return <div className="text-center py-8">Loading voices...</div>;
+  }
 
   return (
-    <div className="flex justify-center overflow-x-auto pb-4">
-      <div className="flex space-x-6 px-4">
+    <div className="relative">
+      <div className="overflow-x-auto pb-4 flex justify-start" style={{ scrollbarWidth: 'thin', scrollbarColor: '#4a8cff transparent' }}>
+        <div className="flex space-x-6 px-4 min-w-max">
         {voices.map((voice, index) => (
           <Card
             key={voice.id}
@@ -114,6 +137,7 @@ const VoiceCarousel: React.FC<VoiceCarouselProps> = ({ selectedVoice, onVoiceSel
             )}
           </Card>
         ))}
+        </div>
       </div>
     </div>
   );

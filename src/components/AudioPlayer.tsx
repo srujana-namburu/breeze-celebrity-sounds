@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Play, Mic, Settings, User } from 'lucide-react';
+import { VoiceSynthesisService } from '../services/voiceService';
 
 interface AudioPlayerProps {
   article: {
@@ -26,26 +27,160 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
   onClose 
 }) => {
   const [progress, setProgress] = useState(0);
-  const [duration] = useState(180); // 3 minutes simulation
+  const [duration, setDuration] = useState(180); // Default duration
   const [currentTime, setCurrentTime] = useState(0);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const audioRef = React.useRef<HTMLAudioElement>(null);
 
+  // Fetch audio URL when article or voice changes
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isPlaying) {
-      interval = setInterval(() => {
-        setCurrentTime(prev => {
-          const newTime = prev + 1;
-          setProgress((newTime / duration) * 100);
-          if (newTime >= duration) {
-            onPlayPause(false);
-            return 0;
-          }
-          return newTime;
+    if (!article || !voice) return;
+    
+    const synthesizeAudio = async () => {
+      setIsLoading(true);
+      setError('');
+      setAudioUrl('');
+      
+      try {
+        console.log(`Synthesizing article with voice ID: ${voice}`);
+        console.log(`Article summary: ${article.summary.substring(0, 100)}...`);
+        
+        // Make a direct fetch call to the backend API for synthesis
+        const response = await fetch('http://localhost:5001/api/voice/synthesize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: article.summary,
+            voice_id: voice,
+            max_length: 500
+          })
         });
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [isPlaying, duration, onPlayPause]);
+        
+        if (!response.ok) {
+          throw new Error(`Synthesis request failed: ${response.statusText}`);
+        }
+        
+        const result = await response.json();
+        console.log('Synthesis result from API:', result);
+        
+        if (result && result.audioUrl) {
+          // Make sure the URL is absolute by prepending the base URL if it's a relative path
+          const baseUrl = 'http://localhost:5001';
+          const audioUrl = result.audioUrl.startsWith('/') 
+            ? `${baseUrl}${result.audioUrl}` 
+            : result.audioUrl;
+          
+          console.log('Setting audio URL:', audioUrl);
+          setAudioUrl(audioUrl);
+          
+          // Pre-load the audio to make sure it's ready to play
+          const audioElement = new Audio(audioUrl);
+          audioElement.addEventListener('canplaythrough', () => {
+            console.log('Audio is ready to play through');
+          });
+          audioElement.addEventListener('error', (e) => {
+            console.error('Audio preload error:', e);
+          });
+        } else {
+          throw new Error('No audio URL returned from synthesis');
+        }
+      } catch (error) {
+        console.error('Error synthesizing article:', error);
+        setError('Failed to synthesize audio. Please try again.');
+        onPlayPause(false);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    synthesizeAudio();
+  }, [article, voice]);
+
+  // Handle play/pause
+  useEffect(() => {
+    if (!audioRef.current || !audioUrl) return;
+    
+    const playAudio = async () => {
+      try {
+        if (isPlaying) {
+          console.log('Attempting to play audio:', audioUrl);
+          // Make sure the audio is loaded before playing
+          if (audioRef.current.readyState < 2) { // HAVE_CURRENT_DATA
+            await new Promise((resolve) => {
+              const loadHandler = () => {
+                console.log('Audio loaded and ready to play');
+                resolve(true);
+                audioRef.current?.removeEventListener('canplay', loadHandler);
+              };
+              audioRef.current?.addEventListener('canplay', loadHandler);
+            });
+          }
+          
+          const playPromise = audioRef.current.play();
+          if (playPromise !== undefined) {
+            playPromise.catch(error => {
+              console.error('Error playing audio:', error);
+              setError('Error playing audio. Please try again.');
+              // Call onPlayPause to update the parent component's state
+              onPlayPause(false);
+            });
+          }
+        } else {
+          audioRef.current.pause();
+        }
+      } catch (error) {
+        console.error('Error in audio playback:', error);
+        setError('Error playing audio. Please try again.');
+        onPlayPause(false);
+      }
+    };
+    
+    playAudio();
+  }, [isPlaying, audioUrl, onPlayPause]);
+
+  // Update progress and current time
+  useEffect(() => {
+    if (!audioRef.current) return;
+    
+    const updateProgress = () => {
+      if (!audioRef.current) return;
+      
+      const current = audioRef.current.currentTime;
+      const total = audioRef.current.duration || duration;
+      
+      setCurrentTime(current);
+      setProgress((current / total) * 100);
+      
+      // Debug logging
+      console.log(`Audio progress: ${current}s / ${total}s (${Math.round((current / total) * 100)}%)`);
+    };
+    
+    // Update progress every 500ms for smoother updates
+    const interval = setInterval(updateProgress, 500);
+    
+    // Also update on timeupdate event
+    audioRef.current.addEventListener('timeupdate', updateProgress);
+    
+    // Add additional event listeners for debugging
+    audioRef.current.addEventListener('play', () => console.log('Audio play event fired'));
+    audioRef.current.addEventListener('pause', () => console.log('Audio pause event fired'));
+    audioRef.current.addEventListener('ended', () => console.log('Audio ended event fired'));
+    audioRef.current.addEventListener('error', (e) => console.error('Audio error event:', e));
+    
+    return () => {
+      clearInterval(interval);
+      if (audioRef.current) {
+        audioRef.current.removeEventListener('timeupdate', updateProgress);
+        audioRef.current.removeEventListener('play', () => {});
+        audioRef.current.removeEventListener('pause', () => {});
+        audioRef.current.removeEventListener('ended', () => {});
+        audioRef.current.removeEventListener('error', () => {});
+      }
+    };
+  }, [duration, audioUrl]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -54,19 +189,54 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
   };
 
   const getVoiceName = (voiceId: string) => {
-    const voices = {
-      'elon': 'Elon Musk',
-      'morgan': 'Morgan Freeman', 
-      'oprah': 'Oprah Winfrey',
-      'david': 'David Attenborough',
-      'samuel': 'Samuel L. Jackson'
-    };
-    return voices[voiceId] || 'Unknown Voice';
+    // Get voice name from VoiceSynthesisService if available
+    const voices = VoiceSynthesisService.getAvailableVoices();
+    const voice = voices.find(v => v.id === voiceId);
+    
+    if (voice) {
+      return voice.name;
+    }
+    
+    // Fallback to generic voice names if not found
+    if (voiceId.startsWith('voice')) {
+      return `Voice ${voiceId.replace('voice', '')}`;
+    }
+    
+    return 'Unknown Voice';
   };
 
   return (
     <Card className="glass-morphic border-t border-white/20 rounded-t-2xl shadow-2xl">
       <div className="p-6">
+        {/* Hidden audio element */}
+        {audioUrl && (
+          <audio 
+            ref={audioRef} 
+            src={audioUrl} 
+            preload="auto"
+            controls={false}
+            crossOrigin="anonymous"
+            onError={(e) => {
+              console.error('Audio element error:', e);
+              setError('Error loading audio file. Please try again.');
+            }}
+            onLoadedMetadata={(e) => {
+              console.log('Audio metadata loaded', e);
+              // Set the duration from the audio element
+              if (audioRef.current) {
+                setDuration(audioRef.current.duration || 0);
+              }
+            }}
+            onCanPlay={() => console.log('Audio can play now')}
+            onEnded={() => {
+              console.log('Audio playback ended');
+              onPlayPause(false);
+              setCurrentTime(0);
+              setProgress(0);
+            }}
+          />
+        )}
+
         {/* Close Button */}
         <div className="flex justify-end mb-4">
           <Button 
@@ -135,25 +305,48 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
 
         {/* Controls */}
         <div className="flex items-center justify-center space-x-6">
-          <Button
-            size="lg"
-            onClick={() => onPlayPause(!isPlaying)}
-            className={`w-16 h-16 rounded-full transition-all duration-300 ${
-              isPlaying
-                ? 'bg-gradient-to-r from-warm-amber to-electric-blue animate-pulse-glow'
-                : 'bg-gradient-to-r from-electric-blue to-aurora-green hover:scale-110'
-            }`}
-          >
-            <Play 
-              className={`w-6 h-6 transition-transform duration-300 ${
-                isPlaying ? 'scale-90' : 'scale-100'
-              }`} 
-            />
-          </Button>
-          
-          <Button variant="ghost" size="icon" className="hover-glow">
-            <Settings className="w-5 h-5" />
-          </Button>
+          {loading ? (
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-electric-blue mb-2"></div>
+              <p className="text-sm text-gray-400">Generating audio...</p>
+            </div>
+          ) : error ? (
+            <div className="text-center">
+              <p className="text-red-400 mb-2">{error}</p>
+              <Button 
+                onClick={() => window.location.reload()}
+                className="bg-electric-blue hover:bg-electric-blue/80"
+              >
+                Try Again
+              </Button>
+            </div>
+          ) : (
+            <>
+              <Button
+                size="lg"
+                onClick={() => onPlayPause(!isPlaying)}
+                disabled={!audioUrl}
+                className={`w-16 h-16 rounded-full transition-all duration-300 ${
+                  isPlaying
+                    ? 'bg-gradient-to-r from-warm-amber to-electric-blue animate-pulse-glow'
+                    : 'bg-gradient-to-r from-electric-blue to-aurora-green hover:scale-110'
+                }`}
+              >
+                {isPlaying ? (
+                  <span className="text-2xl">❚❚</span>
+                ) : (
+                  <Play className="w-8 h-8" />
+                )}
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="hover:bg-white/10"
+              >
+                <Settings className="w-5 h-5" />
+              </Button>
+            </>
+          )}
         </div>
 
         {/* Live Indicator */}
