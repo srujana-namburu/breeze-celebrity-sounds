@@ -1,57 +1,10 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-
-    --radius: 0.5rem;
-
-    --sidebar-background: 0 0% 98%;
-
-    --sidebar-foreground: 240 5.3% 26.1%;
-
-    --sidebar-primary: 240 5.9% 10%;
-
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
-  }
-
-  .dark {
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
 
@@ -87,6 +40,8 @@
     --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+
+    --radius: 0.5rem;
   }
 }
 
@@ -96,6 +51,42 @@
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-midnight text-foreground font-sans;
+    background: linear-gradient(135deg, #0B1426 0%, #1A1D29 100%);
+    min-height: 100vh;
+  }
+
+  .glass-morphic {
+    backdrop-filter: blur(20px);
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .hover-glow:hover {
+    box-shadow: 0 0 30px rgba(0, 212, 255, 0.4);
+    transition: box-shadow 0.3s ease;
+  }
+
+  .parallax-scroll {
+    transform: translateZ(0);
+    will-change: transform;
+  }
+}
+
+@layer components {
+  .news-card {
+    @apply glass-morphic rounded-xl p-6 hover:scale-105 transition-all duration-300 hover-glow;
+  }
+
+  .celebrity-avatar {
+    @apply w-20 h-20 rounded-full border-2 border-electric-blue/30 hover:border-electric-blue transition-colors duration-300;
+  }
+
+  .audio-wave {
+    @apply w-1 bg-gradient-to-t from-electric-blue to-aurora-green rounded-full;
+  }
+
+  .gradient-text {
+    @apply bg-gradient-to-r from-electric-blue via-aurora-green to-warm-amber bg-clip-text text-transparent;
   }
 }
