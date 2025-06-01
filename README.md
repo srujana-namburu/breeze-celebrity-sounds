@@ -14,6 +14,8 @@ This backend powers the **Breeze Celebrity Sounds** web application, offering:
 
 ```bash
 git clone https://github.com/your-username/breeze-celebrity-sounds.git
+npm install
+npm run dev
 cd breeze-celebrity-sounds/backend
 pip install -r requirements.txt
 python app.py
